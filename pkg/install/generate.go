@@ -254,6 +254,8 @@ func InstallerPodSpec(
 			})
 			emptyDirs["libvirtsshkeys"] = constants.LibvirtSSHPrivateKeyDir
 		}
+	case cd.Spec.Platform.Nutanix != nil:
+		credentialRef = cd.Spec.Platform.Nutanix.CredentialsSecretRef.Name
 	}
 
 	if credentialRef != "" {
@@ -527,6 +529,8 @@ func GenerateUninstallerJobForDeprovision(
 		completeOvirtDeprovisionJob(req, job)
 	case req.Spec.Platform.IBMCloud != nil:
 		completeIBMCloudDeprovisionJob(req, job)
+	case req.Spec.Platform.Nutanix != nil:
+		completeNutanixCloudDeprovisionJob(req, job)
 	default:
 		return nil, errors.New("deprovision requests currently not supported for platform")
 	}
@@ -880,4 +884,31 @@ func completeIBMCloudDeprovisionJob(req *hivev1.ClusterDeprovision, job *batchv1
 			},
 		},
 	}
+}
+
+func completeNutanixCloudDeprovisionJob(req *hivev1.ClusterDeprovision, job *batchv1.Job) {
+	env, volumes, volumeMounts := envAndVolumes(
+		req.Namespace,
+		"nutanix-creds", constants.NutanixCredentialsDir, req.Spec.Platform.Nutanix.CredentialsSecretRef.Name,
+		"", "", "")
+
+	job.Spec.Template.Spec.Containers = []corev1.Container{
+		{
+			Name:            "deprovision",
+			Image:           images.GetHiveImage(),
+			ImagePullPolicy: images.GetHiveImagePullPolicy(),
+			Env:             env,
+			Command:         []string{"/usr/bin/hiveutil"},
+			Args: []string{
+				"deprovision", "nutanix",
+				req.Spec.InfraID,
+				"--nutanix-pc-address", req.Spec.Platform.Nutanix.PrismCentral.Address,
+				"--nutanix-pc-port", strconv.Itoa(int(req.Spec.Platform.Nutanix.PrismCentral.Port)),
+				"--loglevel", "debug",
+				"--creds-dir", constants.NutanixCredentialsDir,
+			},
+			VolumeMounts: volumeMounts,
+		},
+	}
+	job.Spec.Template.Spec.Volumes = volumes
 }
