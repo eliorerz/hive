@@ -36,6 +36,7 @@ func NewDeprovisionCommand() *cobra.Command {
 	cmd.AddCommand(NewDeprovisionOpenStackCommand())
 	cmd.AddCommand(NewDeprovisionvSphereCommand())
 	cmd.AddCommand(NewDeprovisionOvirtCommand())
+	cmd.AddCommand(NewDeprovisionNutanixCommand())
 	return cmd
 }
 
